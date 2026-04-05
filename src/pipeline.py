@@ -8,9 +8,14 @@ Usage:
     python src/pipeline.py
 """
 
+import os
 import pandas as pd
 from sqlalchemy import create_engine, text
 from datetime import datetime
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 # =============================================================================
@@ -18,12 +23,13 @@ from datetime import datetime
 # =============================================================================
 
 # MySQL Source (Basket Craft transactional database)
+# Credentials loaded from .env file
 MYSQL_CONFIG = {
-    'host': 'localhost',
-    'port': 3306,
-    'database': 'basket_craft',
-    'user': 'basket_craft_user',
-    'password': 'basket_craft_pass'
+    'host': os.getenv('MYSQL_HOST'),
+    'port': int(os.getenv('MYSQL_PORT', 3306)),
+    'database': os.getenv('MYSQL_DATABASE'),
+    'user': os.getenv('MYSQL_USER'),
+    'password': os.getenv('MYSQL_PASSWORD')
 }
 
 # PostgreSQL Destination (Dashboard database)

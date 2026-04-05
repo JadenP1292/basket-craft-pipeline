@@ -1,0 +1,15 @@
+# Basket Craft ETL Pipeline Dependencies
+
+# Database connectivity
+sqlalchemy>=2.0.0
+pymysql>=1.1.0          # MySQL driver
+psycopg2-binary>=2.9.0  # PostgreSQL driver
+
+# Data processing
+pandas>=2.0.0
+
+# Configuration
+python-dotenv>=1.0.0    # For .env file support (optional)
+
+# Development/Testing
+pytest>=7.0.0           # For unit tests

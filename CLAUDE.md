@@ -4,13 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Basket Craft is an ETL pipeline that extracts order data from a remote MySQL database and loads it into PostgreSQL for dashboard consumption. There are two destinations: local Docker PostgreSQL for development and AWS RDS PostgreSQL for cloud deployment.
+Basket Craft is an ETL pipeline that extracts order data from a remote MySQL database and loads it into multiple destinations for dashboard consumption and analytics. There are three destinations: local Docker PostgreSQL for development, AWS RDS PostgreSQL for cloud deployment, and Snowflake for data warehousing.
 
 ## Commands
 
 ```bash
 # Extract raw tables from MySQL → AWS RDS (no transformations)
 python src/extract_to_rds.py
+
+# Load raw tables from AWS RDS → Snowflake
+python src/load_to_snowflake.py
 
 # Run aggregation pipeline to local Docker PostgreSQL
 python src/pipeline.py
@@ -42,7 +45,7 @@ with engine.connect() as c: print(c.execute(text('SELECT * FROM products')).fetc
 ## Architecture
 
 ```
-MySQL (db.isba.co)                    PostgreSQL Destinations
+MySQL (db.isba.co)                    Destinations
 ┌─────────────────────┐              ┌─────────────────────────────────┐
 │ 8 tables:           │              │ Local Docker (localhost:5433)  │
 │ • orders            │──pipeline.py─│ • monthly_sales_summary (agg)  │
@@ -50,10 +53,19 @@ MySQL (db.isba.co)                    PostgreSQL Destinations
 │ • products          │              └─────────────────────────────────┘
 │ • users             │
 │ • employees         │              ┌─────────────────────────────────┐
-│ • order_item_refunds│extract_to_   │ AWS RDS (us-west-2)             │
+│ • order_item_refunds│extract_to_   │ AWS RDS (us-east-1)             │
 │ • website_sessions  │──rds.py─────►│ • All 8 raw tables (1.77M rows) │
 │ • website_pageviews │              │ • basket_craft database         │
 └─────────────────────┘              └─────────────────────────────────┘
+                                                    │
+                                                    │ load_to_
+                                                    │ snowflake.py
+                                                    ▼
+                                     ┌─────────────────────────────────┐
+                                     │ Snowflake (us-east-1)           │
+                                     │ • BASKET_CRAFT.RAW schema       │
+                                     │ • All 8 raw tables (1.77M rows) │
+                                     └─────────────────────────────────┘
 ```
 
 ## Scripts
@@ -61,6 +73,7 @@ MySQL (db.isba.co)                    PostgreSQL Destinations
 | Script | Purpose | Destination |
 |--------|---------|-------------|
 | `src/extract_to_rds.py` | Raw table extraction (all 8 tables, no transforms) | AWS RDS |
+| `src/load_to_snowflake.py` | Load raw tables from RDS to Snowflake | Snowflake |
 | `src/pipeline.py` | Monthly aggregation pipeline | Local Docker PostgreSQL |
 
 ## Database Connections
@@ -76,6 +89,12 @@ Credentials from `.env`: `RDS_HOST`, `RDS_PORT`, `RDS_USER`, `RDS_PASSWORD`, `RD
 - Port: `5433`
 - Database: `basket_craft_dashboard`
 - User/Password: `postgres/postgres`
+
+### Snowflake (data warehouse)
+Credentials from `.env`: `SNOWFLAKE_ACCOUNT`, `SNOWFLAKE_USER`, `SNOWFLAKE_PASSWORD`, `SNOWFLAKE_ROLE`, `SNOWFLAKE_WAREHOUSE`, `SNOWFLAKE_DATABASE`, `SNOWFLAKE_SCHEMA`
+- Database: `BASKET_CRAFT`
+- Schema: `RAW`
+- Warehouse: `BASKET_CRAFT_WH`
 
 ## Environment Setup
 
@@ -97,9 +116,18 @@ MYSQL_PASSWORD=<password>
 MYSQL_DATABASE=basket_craft
 
 # AWS RDS PostgreSQL
-RDS_HOST=<instance>.us-west-2.rds.amazonaws.com
+RDS_HOST=<instance>.us-east-1.rds.amazonaws.com
 RDS_PORT=5432
 RDS_USER=<user>
 RDS_PASSWORD=<password>
 RDS_DATABASE=basket_craft
+
+# Snowflake
+SNOWFLAKE_ACCOUNT=<account>.us-east-1
+SNOWFLAKE_USER=<user>
+SNOWFLAKE_PASSWORD=<password>
+SNOWFLAKE_ROLE=ACCOUNTADMIN
+SNOWFLAKE_WAREHOUSE=basket_craft_wh
+SNOWFLAKE_DATABASE=basket_craft
+SNOWFLAKE_SCHEMA=raw
 ```

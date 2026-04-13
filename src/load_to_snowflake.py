@@ -47,3 +47,47 @@ def get_table_list():
         'website_sessions',
         'website_pageviews'
     ]
+
+
+def load_table(table_name, rds_engine, sf_connection):
+    """
+    Load a single table from RDS to Snowflake.
+
+    Args:
+        table_name: Name of the table to load
+        rds_engine: SQLAlchemy engine for RDS
+        sf_connection: Snowflake connection
+
+    Returns:
+        int: Number of rows loaded
+    """
+    # Read from RDS
+    print(f"  Reading {table_name} from RDS...", end=" ", flush=True)
+    df = pd.read_sql_table(table_name, rds_engine)
+    row_count = len(df)
+    print(f"{row_count:,} rows")
+
+    # Convert column names to lowercase for Snowflake/dbt compatibility
+    df.columns = df.columns.str.lower()
+
+    # Truncate target table if it exists
+    cursor = sf_connection.cursor()
+    try:
+        cursor.execute(f"TRUNCATE TABLE IF EXISTS {table_name}")
+    except Exception:
+        pass  # Table may not exist yet, that's fine
+    finally:
+        cursor.close()
+
+    # Load to Snowflake
+    print(f"  Writing to Snowflake...", end=" ", flush=True)
+    write_pandas(
+        conn=sf_connection,
+        df=df,
+        table_name=table_name.upper(),  # Snowflake table names are uppercase
+        auto_create_table=True,
+        quote_identifiers=False  # Keep column names lowercase
+    )
+    print("done")
+
+    return row_count

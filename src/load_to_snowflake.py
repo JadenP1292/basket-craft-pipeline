@@ -8,7 +8,7 @@ and loads them into Snowflake basket_craft.raw schema.
 import os
 from dotenv import load_dotenv
 import pandas as pd
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 import snowflake.connector
 from snowflake.connector.pandas_tools import write_pandas
 
@@ -107,7 +107,7 @@ def main():
     try:
         rds_engine = get_rds_engine()
         with rds_engine.connect() as conn:
-            conn.execute("SELECT 1")
+            conn.execute(text("SELECT 1"))
         print("OK")
     except Exception as e:
         print(f"FAILED\nError: {e}")

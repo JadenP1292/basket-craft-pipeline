@@ -91,3 +91,78 @@ def load_table(table_name, rds_engine, sf_connection):
     print("done")
 
     return row_count
+
+
+def main():
+    """Main entry point for the loader."""
+    # Load environment variables
+    load_dotenv()
+
+    print("=" * 50)
+    print("RDS to Snowflake Loader")
+    print("=" * 50)
+
+    # Test RDS connection
+    print("\nConnecting to RDS...", end=" ", flush=True)
+    try:
+        rds_engine = get_rds_engine()
+        with rds_engine.connect() as conn:
+            conn.execute("SELECT 1")
+        print("OK")
+    except Exception as e:
+        print(f"FAILED\nError: {e}")
+        return 1
+
+    # Test Snowflake connection
+    print("Connecting to Snowflake...", end=" ", flush=True)
+    try:
+        sf_connection = get_snowflake_connection()
+        sf_connection.cursor().execute("SELECT 1")
+        print("OK")
+    except Exception as e:
+        print(f"FAILED\nError: {e}")
+        return 1
+
+    # Load all tables
+    tables = get_table_list()
+    results = {}
+    failures = []
+
+    print(f"\nLoading {len(tables)} tables...\n")
+
+    for table in tables:
+        print(f"[{table}]")
+        try:
+            row_count = load_table(table, rds_engine, sf_connection)
+            results[table] = row_count
+        except Exception as e:
+            print(f"  ERROR: {e}")
+            failures.append(table)
+        print()
+
+    # Close connections
+    sf_connection.close()
+    rds_engine.dispose()
+
+    # Print summary
+    print("=" * 50)
+    print("Summary")
+    print("=" * 50)
+
+    total_rows = 0
+    for table, count in results.items():
+        print(f"  {table}: {count:,} rows")
+        total_rows += count
+
+    print(f"\nTotal: {total_rows:,} rows across {len(results)} tables")
+
+    if failures:
+        print(f"\nFailed tables: {', '.join(failures)}")
+        return 1
+
+    print("\nComplete! All tables loaded successfully.")
+    return 0
+
+
+if __name__ == "__main__":
+    exit(main())
